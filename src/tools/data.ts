@@ -111,9 +111,6 @@ export function registerDataTools(
     },
     wrapHandler(async ({ sql, params }) => {
       const result = await driver.execute(sql, params);
-      if (driver.recordMigration) {
-        await driver.recordMigration(sql, "execute_sql");
-      }
       return {
         content: [
           {

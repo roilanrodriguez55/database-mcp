@@ -8,13 +8,15 @@ function getProjectRoot(): string {
   return join(__dirname, "..");
 }
 
-/** Loads DATABASE_URL, DB_TYPE, MIGRATIONS_DIR from env */
-export function loadConfig(): {
+type LoadConfigType = {
   databaseUrl: string;
   dbType: string;
   migrationsDir: string;
   migrationsEnabled: boolean;
-} {
+}
+
+/** Loads DATABASE_URL, DB_TYPE, MIGRATIONS_DIR from env */
+export function loadConfig(): LoadConfigType {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {
     throw new Error("DATABASE_URL is required");
