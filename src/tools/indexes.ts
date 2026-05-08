@@ -1,42 +1,31 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { IDatabaseDriver } from "../drivers/types.js";
+import type { ConnectionManager } from "../connection-manager.js";
 import { z } from "zod";
-
-function wrapHandler<T>(
-  handler: (params: T) => Promise<{ content: { type: "text"; text: string }[] }>
-) {
-  return async (params: T) => {
-    try {
-      return await handler(params);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      return {
-        content: [{ type: "text" as const, text: msg }],
-        isError: true,
-      };
-    }
-  };
-}
 
 export function registerIndexTools(
   server: McpServer,
-  driver: IDatabaseDriver
+  connectionManager: ConnectionManager
 ): void {
   server.registerTool(
     "db_list_indexes",
     {
       description: "List indexes",
       inputSchema: {
+        database: z.string().describe("Database name from databases.json"),
         schema: z.string().optional().describe("Filter by schema"),
         table: z.string().optional().describe("Filter by table"),
       },
     },
-    wrapHandler(async ({ schema, table }) => {
-      const indexes = await driver.listIndexes(schema, table);
-      return {
-        content: [{ type: "text", text: JSON.stringify(indexes, null, 2) }],
-      };
-    })
+    async (params: { database: string; schema?: string; table?: string }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        const indexes = await driver.listIndexes(params.schema, params.table);
+        return { content: [{ type: "text", text: JSON.stringify(indexes, null, 2) }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
+      }
+    }
   );
 
   server.registerTool(
@@ -44,6 +33,7 @@ export function registerIndexTools(
     {
       description: "Create an index",
       inputSchema: {
+        database: z.string().describe("Database name from databases.json"),
         schema: z.string().describe("Schema name"),
         table: z.string().describe("Table name"),
         columns: z.array(z.string()).describe("Index columns"),
@@ -51,12 +41,16 @@ export function registerIndexTools(
         unique: z.boolean().optional().describe("Unique index"),
       },
     },
-    wrapHandler(async ({ schema, table, columns, name, unique }) => {
-      await driver.createIndex(schema, table, columns, { name, unique });
-      return {
-        content: [{ type: "text", text: `Index created on "${schema}"."${table}"` }],
-      };
-    })
+    async (params: { database: string; schema: string; table: string; columns: string[]; name?: string; unique?: boolean }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        await driver.createIndex(params.schema, params.table, params.columns, { name: params.name, unique: params.unique });
+        return { content: [{ type: "text", text: `Index created on "${params.schema}"."${params.table}"` }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
+      }
+    }
   );
 
   server.registerTool(
@@ -64,15 +58,20 @@ export function registerIndexTools(
     {
       description: "Drop an index",
       inputSchema: {
+        database: z.string().describe("Database name from databases.json"),
         schema: z.string().describe("Schema name"),
         name: z.string().describe("Index name"),
       },
     },
-    wrapHandler(async ({ schema, name }) => {
-      await driver.dropIndex(schema, name);
-      return {
-        content: [{ type: "text", text: `Index "${schema}"."${name}" dropped` }],
-      };
-    })
+    async (params: { database: string; schema: string; name: string }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        await driver.dropIndex(params.schema, params.name);
+        return { content: [{ type: "text", text: `Index "${params.schema}"."${params.name}" dropped` }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
+      }
+    }
   );
 }

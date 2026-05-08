@@ -1,40 +1,27 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { IDatabaseDriver } from "../drivers/types.js";
+import type { ConnectionManager } from "../connection-manager.js";
 import { z } from "zod";
-
-function wrapHandler<T>(
-  handler: (params: T) => Promise<{ content: { type: "text"; text: string }[] }>
-) {
-  return async (params: T) => {
-    try {
-      return await handler(params);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      return {
-        content: [{ type: "text" as const, text: msg }],
-        isError: true,
-      };
-    }
-  };
-}
 
 export function registerAuthTools(
   server: McpServer,
-  driver: IDatabaseDriver
+  connectionManager: ConnectionManager
 ): void {
-  // Roles
   server.registerTool(
     "db_list_roles",
     {
       description: "List all database roles",
-      inputSchema: {},
+      inputSchema: { database: z.string().describe("Database name from databases.json") },
     },
-    wrapHandler(async () => {
-      const roles = await driver.listRoles();
-      return {
-        content: [{ type: "text", text: JSON.stringify(roles, null, 2) }],
-      };
-    })
+    async (params: { database: string }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        const roles = await driver.listRoles();
+        return { content: [{ type: "text", text: JSON.stringify(roles, null, 2) }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
+      }
+    }
   );
 
   server.registerTool(
@@ -42,6 +29,7 @@ export function registerAuthTools(
     {
       description: "Create a database role",
       inputSchema: {
+        database: z.string().describe("Database name from databases.json"),
         name: z.string().describe("Role name"),
         login: z.boolean().optional().describe("Can login (default: false)"),
         password: z.string().optional().describe("Password for login roles"),
@@ -50,18 +38,16 @@ export function registerAuthTools(
         createrole: z.boolean().optional().describe("Can create roles"),
       },
     },
-    wrapHandler(async ({ name, login, password, superuser, createdb, createrole }) => {
-      await driver.createRole(name, {
-        login,
-        password,
-        superuser,
-        createdb,
-        createrole,
-      });
-      return {
-        content: [{ type: "text", text: `Role "${name}" created` }],
-      };
-    })
+    async (params: { database: string; name: string; login?: boolean; password?: string; superuser?: boolean; createdb?: boolean; createrole?: boolean }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        await driver.createRole(params.name, { login: params.login, password: params.password, superuser: params.superuser, createdb: params.createdb, createrole: params.createrole });
+        return { content: [{ type: "text", text: `Role "${params.name}" created` }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
+      }
+    }
   );
 
   server.registerTool(
@@ -69,23 +55,23 @@ export function registerAuthTools(
     {
       description: "Create a database user (role with LOGIN)",
       inputSchema: {
+        database: z.string().describe("Database name from databases.json"),
         name: z.string().describe("User/role name"),
         password: z.string().describe("Password"),
         createdb: z.boolean().optional().describe("Can create databases"),
         createrole: z.boolean().optional().describe("Can create roles"),
       },
     },
-    wrapHandler(async ({ name, password, createdb, createrole }) => {
-      await driver.createRole(name, {
-        login: true,
-        password,
-        createdb,
-        createrole,
-      });
-      return {
-        content: [{ type: "text", text: `User "${name}" created` }],
-      };
-    })
+    async (params: { database: string; name: string; password: string; createdb?: boolean; createrole?: boolean }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        await driver.createRole(params.name, { login: true, password: params.password, createdb: params.createdb, createrole: params.createrole });
+        return { content: [{ type: "text", text: `User "${params.name}" created` }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
+      }
+    }
   );
 
   server.registerTool(
@@ -93,6 +79,7 @@ export function registerAuthTools(
     {
       description: "Alter a role",
       inputSchema: {
+        database: z.string().describe("Database name from databases.json"),
         name: z.string().describe("Role name"),
         password: z.string().optional().describe("New password"),
         login: z.boolean().optional().describe("Can login"),
@@ -100,28 +87,34 @@ export function registerAuthTools(
         createrole: z.boolean().optional().describe("Can create roles"),
       },
     },
-    wrapHandler(async ({ name, password, login, createdb, createrole }) => {
-      await driver.alterRole(name, { password, login, createdb, createrole });
-      return {
-        content: [{ type: "text", text: `Role "${name}" altered` }],
-      };
-    })
+    async (params: { database: string; name: string; password?: string; login?: boolean; createdb?: boolean; createrole?: boolean }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        await driver.alterRole(params.name, { password: params.password, login: params.login, createdb: params.createdb, createrole: params.createrole });
+        return { content: [{ type: "text", text: `Role "${params.name}" altered` }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
+      }
+    }
   );
 
   server.registerTool(
     "db_drop_role",
     {
       description: "Drop a role",
-      inputSchema: {
-        name: z.string().describe("Role name"),
-      },
+      inputSchema: { database: z.string().describe("Database name from databases.json"), name: z.string().describe("Role name") },
     },
-    wrapHandler(async ({ name }) => {
-      await driver.dropRole(name);
-      return {
-        content: [{ type: "text", text: `Role "${name}" dropped` }],
-      };
-    })
+    async (params: { database: string; name: string }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        await driver.dropRole(params.name);
+        return { content: [{ type: "text", text: `Role "${params.name}" dropped` }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
+      }
+    }
   );
 
   server.registerTool(
@@ -129,195 +122,164 @@ export function registerAuthTools(
     {
       description: "Grant a role to another role (membership)",
       inputSchema: {
+        database: z.string().describe("Database name from databases.json"),
         roleToGrant: z.string().describe("Role to grant"),
         granteeRole: z.string().describe("Role that receives the grant"),
       },
     },
-    wrapHandler(async ({ roleToGrant, granteeRole }) => {
-      await driver.grantRoleMembership(roleToGrant, granteeRole);
-      return {
-        content: [{ type: "text", text: `Role "${roleToGrant}" granted to "${granteeRole}"` }],
-      };
-    })
+    async (params: { database: string; roleToGrant: string; granteeRole: string }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        await driver.grantRoleMembership(params.roleToGrant, params.granteeRole);
+        return { content: [{ type: "text", text: `Role "${params.roleToGrant}" granted to "${params.granteeRole}"` }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
+      }
+    }
   );
 
   server.registerTool(
     "db_revoke_role_membership",
     {
       description: "Revoke role membership",
-      inputSchema: {
-        roleToRevoke: z.string().describe("Role to revoke"),
-        revokeeRole: z.string().describe("Role to revoke from"),
-      },
+      inputSchema: { database: z.string().describe("Database name from databases.json"), roleToRevoke: z.string().describe("Role to revoke"), revokeeRole: z.string().describe("Role to revoke from") },
     },
-    wrapHandler(async ({ roleToRevoke, revokeeRole }) => {
-      await driver.revokeRoleMembership(roleToRevoke, revokeeRole);
-      return {
-        content: [{ type: "text", text: `Role "${roleToRevoke}" revoked from "${revokeeRole}"` }],
-      };
-    })
+    async (params: { database: string; roleToRevoke: string; revokeeRole: string }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        await driver.revokeRoleMembership(params.roleToRevoke, params.revokeeRole);
+        return { content: [{ type: "text", text: `Role "${params.roleToRevoke}" revoked from "${params.revokeeRole}"` }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
+      }
+    }
   );
 
-  // Schema permissions
   server.registerTool(
     "db_grant_schema",
     {
       description: "Grant schema privileges (USAGE, CREATE) to a role",
-      inputSchema: {
-        schema: z.string().describe("Schema name"),
-        role: z.string().describe("Role name"),
-        privileges: z
-          .array(z.enum(["USAGE", "CREATE"]))
-          .describe("Privileges: USAGE (access), CREATE (create objects)"),
-      },
+      inputSchema: { database: z.string().describe("Database name from databases.json"), schema: z.string().describe("Schema name"), role: z.string().describe("Role name"), privileges: z.array(z.enum(["USAGE", "CREATE"])).describe("Privileges") },
     },
-    wrapHandler(async ({ schema, role, privileges }) => {
-      await driver.grantSchema(schema, role, privileges);
-      return {
-        content: [{ type: "text", text: `Schema "${schema}" privileges granted to "${role}"` }],
-      };
-    })
+    async (params: { database: string; schema: string; role: string; privileges: string[] }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        await driver.grantSchema(params.schema, params.role, params.privileges);
+        return { content: [{ type: "text", text: `Schema "${params.schema}" privileges granted to "${params.role}"` }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
+      }
+    }
   );
 
   server.registerTool(
     "db_revoke_schema",
     {
       description: "Revoke schema privileges from a role",
-      inputSchema: {
-        schema: z.string().describe("Schema name"),
-        role: z.string().describe("Role name"),
-        privileges: z
-          .array(z.enum(["USAGE", "CREATE"]))
-          .optional()
-          .describe("Privileges to revoke (omit for ALL)"),
-      },
+      inputSchema: { database: z.string().describe("Database name from databases.json"), schema: z.string().describe("Schema name"), role: z.string().describe("Role name"), privileges: z.array(z.enum(["USAGE", "CREATE"])).optional().describe("Privileges to revoke") },
     },
-    wrapHandler(async ({ schema, role, privileges }) => {
-      await driver.revokeSchema(schema, role, privileges);
-      return {
-        content: [{ type: "text", text: `Schema "${schema}" privileges revoked from "${role}"` }],
-      };
-    })
+    async (params: { database: string; schema: string; role: string; privileges?: string[] }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        await driver.revokeSchema(params.schema, params.role, params.privileges);
+        return { content: [{ type: "text", text: `Schema "${params.schema}" privileges revoked from "${params.role}"` }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
+      }
+    }
   );
 
-  // Table permissions (CRUD)
   server.registerTool(
     "db_grant_table",
     {
-      description: "Grant table privileges (SELECT, INSERT, UPDATE, DELETE) to a role",
-      inputSchema: {
-        schema: z.string().describe("Schema name"),
-        table: z.string().describe("Table name"),
-        role: z.string().describe("Role name"),
-        privileges: z
-          .array(z.enum(["SELECT", "INSERT", "UPDATE", "DELETE", "ALL"]))
-          .describe("Privileges: SELECT (read), INSERT (create), UPDATE, DELETE, or ALL"),
-      },
+      description: "Grant table privileges to a role",
+      inputSchema: { database: z.string().describe("Database name from databases.json"), schema: z.string().describe("Schema name"), table: z.string().describe("Table name"), role: z.string().describe("Role name"), privileges: z.array(z.enum(["SELECT", "INSERT", "UPDATE", "DELETE", "ALL"])).describe("Privileges") },
     },
-    wrapHandler(async ({ schema, table, role, privileges }) => {
-      await driver.grantTable(schema, table, role, privileges);
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Table "${schema}"."${table}" privileges granted to "${role}"`,
-          },
-        ],
-      };
-    })
+    async (params: { database: string; schema: string; table: string; role: string; privileges: string[] }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        await driver.grantTable(params.schema, params.table, params.role, params.privileges);
+        return { content: [{ type: "text", text: `Table "${params.schema}"."${params.table}" privileges granted to "${params.role}"` }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
+      }
+    }
   );
 
   server.registerTool(
     "db_revoke_table",
     {
       description: "Revoke table privileges from a role",
-      inputSchema: {
-        schema: z.string().describe("Schema name"),
-        table: z.string().describe("Table name"),
-        role: z.string().describe("Role name"),
-        privileges: z
-          .array(z.enum(["SELECT", "INSERT", "UPDATE", "DELETE", "ALL"]))
-          .optional()
-          .describe("Privileges to revoke (omit for ALL)"),
-      },
+      inputSchema: { database: z.string().describe("Database name from databases.json"), schema: z.string().describe("Schema name"), table: z.string().describe("Table name"), role: z.string().describe("Role name"), privileges: z.array(z.enum(["SELECT", "INSERT", "UPDATE", "DELETE", "ALL"])).optional().describe("Privileges") },
     },
-    wrapHandler(async ({ schema, table, role, privileges }) => {
-      await driver.revokeTable(schema, table, role, privileges);
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Table "${schema}"."${table}" privileges revoked from "${role}"`,
-          },
-        ],
-      };
-    })
+    async (params: { database: string; schema: string; table: string; role: string; privileges?: string[] }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        await driver.revokeTable(params.schema, params.table, params.role, params.privileges);
+        return { content: [{ type: "text", text: `Table "${params.schema}"."${params.table}" privileges revoked from "${params.role}"` }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
+      }
+    }
   );
 
   server.registerTool(
     "db_grant_all_tables_in_schema",
     {
       description: "Grant privileges on all tables in a schema to a role",
-      inputSchema: {
-        schema: z.string().describe("Schema name"),
-        role: z.string().describe("Role name"),
-        privileges: z
-          .array(z.enum(["SELECT", "INSERT", "UPDATE", "DELETE", "ALL"]))
-          .describe("Privileges: SELECT, INSERT, UPDATE, DELETE, or ALL"),
-      },
+      inputSchema: { database: z.string().describe("Database name from databases.json"), schema: z.string().describe("Schema name"), role: z.string().describe("Role name"), privileges: z.array(z.enum(["SELECT", "INSERT", "UPDATE", "DELETE", "ALL"])).describe("Privileges") },
     },
-    wrapHandler(async ({ schema, role, privileges }) => {
-      await driver.grantAllTablesInSchema(schema, role, privileges);
-      return {
-        content: [
-          {
-            type: "text",
-            text: `All tables in schema "${schema}" granted to "${role}"`,
-          },
-        ],
-      };
-    })
+    async (params: { database: string; schema: string; role: string; privileges: string[] }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        await driver.grantAllTablesInSchema(params.schema, params.role, params.privileges);
+        return { content: [{ type: "text", text: `All tables in schema "${params.schema}" granted to "${params.role}"` }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
+      }
+    }
   );
 
   server.registerTool(
     "db_revoke_all_tables_in_schema",
     {
       description: "Revoke privileges on all tables in a schema from a role",
-      inputSchema: {
-        schema: z.string().describe("Schema name"),
-        role: z.string().describe("Role name"),
-        privileges: z
-          .array(z.enum(["SELECT", "INSERT", "UPDATE", "DELETE", "ALL"]))
-          .optional()
-          .describe("Privileges to revoke (omit for ALL)"),
-      },
+      inputSchema: { database: z.string().describe("Database name from databases.json"), schema: z.string().describe("Schema name"), role: z.string().describe("Role name"), privileges: z.array(z.enum(["SELECT", "INSERT", "UPDATE", "DELETE", "ALL"])).optional().describe("Privileges") },
     },
-    wrapHandler(async ({ schema, role, privileges }) => {
-      await driver.revokeAllTablesInSchema(schema, role, privileges);
-      return {
-        content: [
-          {
-            type: "text",
-            text: `All tables in schema "${schema}" revoked from "${role}"`,
-          },
-        ],
-      };
-    })
+    async (params: { database: string; schema: string; role: string; privileges?: string[] }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        await driver.revokeAllTablesInSchema(params.schema, params.role, params.privileges);
+        return { content: [{ type: "text", text: `All tables in schema "${params.schema}" revoked from "${params.role}"` }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
+      }
+    }
   );
 
   server.registerTool(
     "db_list_grants",
     {
       description: "List all grants for a role (table privileges)",
-      inputSchema: {
-        role: z.string().describe("Role name"),
-      },
+      inputSchema: { database: z.string().describe("Database name from databases.json"), role: z.string().describe("Role name") },
     },
-    wrapHandler(async ({ role }) => {
-      const grants = await driver.listGrantsForRole(role);
-      return {
-        content: [{ type: "text", text: JSON.stringify(grants, null, 2) }],
-      };
-    })
+    async (params: { database: string; role: string }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        const grants = await driver.listGrantsForRole(params.role);
+        return { content: [{ type: "text", text: JSON.stringify(grants, null, 2) }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
+      }
+    }
   );
 }

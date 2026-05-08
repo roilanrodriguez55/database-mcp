@@ -1,41 +1,30 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { IDatabaseDriver } from "../drivers/types.js";
+import type { ConnectionManager } from "../connection-manager.js";
 import { z } from "zod";
-
-function wrapHandler<T>(
-  handler: (params: T) => Promise<{ content: { type: "text"; text: string }[] }>
-) {
-  return async (params: T) => {
-    try {
-      return await handler(params);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      return {
-        content: [{ type: "text" as const, text: msg }],
-        isError: true,
-      };
-    }
-  };
-}
 
 export function registerSchemaTools(
   server: McpServer,
-  driver: IDatabaseDriver
+  connectionManager: ConnectionManager
 ): void {
   server.registerTool(
     "db_list_schemas",
     {
       description: "List all database schemas",
       inputSchema: {
+        database: z.string().describe("Database name from databases.json"),
         includeSystem: z.boolean().optional().describe("Include system schemas"),
       },
     },
-    wrapHandler(async ({ includeSystem }) => {
-      const schemas = await driver.listSchemas(includeSystem ?? false);
-      return {
-        content: [{ type: "text", text: JSON.stringify(schemas, null, 2) }],
-      };
-    })
+    async (params: { database: string; includeSystem?: boolean }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        const schemas = await driver.listSchemas(params.includeSystem ?? false);
+        return { content: [{ type: "text", text: JSON.stringify(schemas, null, 2) }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
+      }
+    }
   );
 
   server.registerTool(
@@ -43,16 +32,21 @@ export function registerSchemaTools(
     {
       description: "Create a new schema",
       inputSchema: {
+        database: z.string().describe("Database name from databases.json"),
         name: z.string().describe("Schema name"),
         owner: z.string().optional().describe("Schema owner"),
       },
     },
-    wrapHandler(async ({ name, owner }) => {
-      await driver.createSchema(name, { owner });
-      return {
-        content: [{ type: "text", text: `Schema "${name}" created` }],
-      };
-    })
+    async (params: { database: string; name: string; owner?: string }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        await driver.createSchema(params.name, { owner: params.owner });
+        return { content: [{ type: "text", text: `Schema "${params.name}" created` }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
+      }
+    }
   );
 
   server.registerTool(
@@ -60,21 +54,23 @@ export function registerSchemaTools(
     {
       description: "Get schema details",
       inputSchema: {
+        database: z.string().describe("Database name from databases.json"),
         name: z.string().describe("Schema name"),
       },
     },
-    wrapHandler(async ({ name }) => {
-      const schema = await driver.getSchema(name);
-      if (!schema) {
-        return {
-          content: [{ type: "text", text: `Schema "${name}" not found` }],
-          isError: true,
-        };
+    async (params: { database: string; name: string }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        const schema = await driver.getSchema(params.name);
+        if (!schema) {
+          return { content: [{ type: "text", text: `Schema "${params.name}" not found` }], isError: true };
+        }
+        return { content: [{ type: "text", text: JSON.stringify(schema, null, 2) }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
       }
-      return {
-        content: [{ type: "text", text: JSON.stringify(schema, null, 2) }],
-      };
-    })
+    }
   );
 
   server.registerTool(
@@ -82,16 +78,21 @@ export function registerSchemaTools(
     {
       description: "Rename a schema",
       inputSchema: {
+        database: z.string().describe("Database name from databases.json"),
         name: z.string().describe("Current schema name"),
         newName: z.string().describe("New schema name"),
       },
     },
-    wrapHandler(async ({ name, newName }) => {
-      await driver.alterSchema(name, { newName });
-      return {
-        content: [{ type: "text", text: `Schema "${name}" renamed to "${newName}"` }],
-      };
-    })
+    async (params: { database: string; name: string; newName: string }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        await driver.alterSchema(params.name, { newName: params.newName });
+        return { content: [{ type: "text", text: `Schema "${params.name}" renamed to "${params.newName}"` }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
+      }
+    }
   );
 
   server.registerTool(
@@ -99,15 +100,20 @@ export function registerSchemaTools(
     {
       description: "Drop a schema",
       inputSchema: {
+        database: z.string().describe("Database name from databases.json"),
         name: z.string().describe("Schema name"),
         cascade: z.boolean().optional().describe("Drop dependent objects"),
       },
     },
-    wrapHandler(async ({ name, cascade }) => {
-      await driver.dropSchema(name, cascade ?? false);
-      return {
-        content: [{ type: "text", text: `Schema "${name}" dropped` }],
-      };
-    })
+    async (params: { database: string; name: string; cascade?: boolean }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        await driver.dropSchema(params.name, params.cascade ?? false);
+        return { content: [{ type: "text", text: `Schema "${params.name}" dropped` }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
+      }
+    }
   );
 }

@@ -1,6 +1,6 @@
-# Database MCP Server
+# PostgreSQL MCP Server
 
-MCP server for database operations. Supports PostgreSQL initially, with an extensible architecture for other engines (MySQL, SQLite, etc.).
+MCP server for database operations. Supports PostgreSQL with an extensible architecture for other engines (MySQL, SQLite, etc.).
 
 ## Requirements
 
@@ -15,20 +15,56 @@ npm install
 
 ## Configuration
 
-Set environment variables:
+### Multi-Database Support
+
+This server supports managing **multiple databases simultaneously**. Instead of environment variables, databases are configured in `databases.json`:
+
+```bash
+cp databases.example.json databases.json
+# Edit databases.json with your connections
+```
+
+**databases.json structure:**
+
+| Field | Description |
+|-------|-------------|
+| `name` | Unique identifier for the database |
+| `description` | Optional description |
+| `connectionString` | PostgreSQL connection string |
+| `dbType` | Database type (currently only `postgres`) |
+| `enabled` | Optional boolean, defaults to `true`. Set `false` to disable |
+
+**Example:**
+
+```json
+[
+  {
+    "name": "production",
+    "description": "Main production database",
+    "connectionString": "postgresql://user:pass@prod-host:5432/prod_db",
+    "dbType": "postgres",
+    "enabled": true
+  },
+  {
+    "name": "staging",
+    "description": "Staging environment",
+    "connectionString": "postgresql://user:pass@staging-host:5432/staging_db",
+    "dbType": "postgres",
+    "enabled": true
+  }
+]
+```
+
+All MCP tools now require a `database` parameter specifying which database to operate on.
+
+### Environment Variables
 
 | Variable | Description |
 |----------|-------------|
-| `DATABASE_URL` | Connection string (e.g. `postgresql://user:pass@host:5432/db`) |
-| `DB_TYPE` | Database type: `postgres` (default) |
 | `MIGRATIONS_ENABLED` | Auto-record DDL changes to migration files (default: `true`) |
 | `MIGRATIONS_DIR` | Migrations directory (default: `./migrations`) |
 
-Copy `.env.example` to `.env` and edit:
-
-```bash
-cp .env.example .env
-```
+`DATABASE_URL` is no longer needed - all connections are defined in `databases.json`.
 
 ## Usage
 
@@ -53,10 +89,7 @@ Add to Cursor MCP settings (`.cursor/mcp.json` or Settings → MCP):
   "mcpServers": {
     "database": {
       "command": "npx",
-      "args": ["tsx", "PATH_TO_PROJECT/src/index.ts"],
-      "env": {
-        "DATABASE_URL": "postgresql://user:password@localhost:5432/mydb"
-      }
+      "args": ["tsx", "PATH_TO_PROJECT/src/index.ts"]
     }
   }
 }
@@ -67,7 +100,7 @@ Add to Cursor MCP settings (`.cursor/mcp.json` or Settings → MCP):
 Add a local stdio server via CLI:
 
 ```bash
-claude mcp add --transport stdio --env DATABASE_URL=postgresql://user:password@localhost:5432/mydb database -- npx tsx PATH_TO_PROJECT/src/index.ts
+claude mcp add --transport stdio database -- npx tsx PATH_TO_PROJECT/src/index.ts
 ```
 
 Or add to `.mcp.json` in the project root (for project scope):
@@ -77,10 +110,7 @@ Or add to `.mcp.json` in the project root (for project scope):
   "mcpServers": {
     "database": {
       "command": "npx",
-      "args": ["tsx", "PATH_TO_PROJECT/src/index.ts"],
-      "env": {
-        "DATABASE_URL": "postgresql://user:password@localhost:5432/mydb"
-      }
+      "args": ["tsx", "PATH_TO_PROJECT/src/index.ts"]
     }
   }
 }
@@ -96,25 +126,7 @@ Add to `.vscode/mcp.json` (workspace) or user `mcp.json` (Command Palette → MC
     "database": {
       "type": "stdio",
       "command": "npx",
-      "args": ["tsx", "PATH_TO_PROJECT/src/index.ts"],
-      "env": {
-        "DATABASE_URL": "postgresql://user:password@localhost:5432/mydb"
-      }
-    }
-  }
-}
-```
-
-Optional: use `envFile` to load from `.env` and `${workspaceFolder}` when this project is the workspace:
-
-```json
-{
-  "servers": {
-    "database": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["tsx", "${workspaceFolder}/src/index.ts"],
-      "envFile": "${workspaceFolder}/.env"
+      "args": ["tsx", "PATH_TO_PROJECT/src/index.ts"]
     }
   }
 }
@@ -130,10 +142,7 @@ Add to `settings.json` (Command Palette → Preferences: Open User Settings):
     "database": {
       "source": "custom",
       "command": "npx",
-      "args": ["tsx", "PATH_TO_PROJECT/src/index.ts"],
-      "env": {
-        "DATABASE_URL": "postgresql://user:password@localhost:5432/mydb"
-      }
+      "args": ["tsx", "PATH_TO_PROJECT/src/index.ts"]
     }
   }
 }
@@ -149,16 +158,19 @@ Add to `opencode.json` or `opencode.jsonc` in the project root:
     "database": {
       "type": "local",
       "command": ["npx", "tsx", "PATH_TO_PROJECT/src/index.ts"],
-      "enabled": true,
-      "environment": {
-        "DATABASE_URL": "postgresql://user:password@localhost:5432/mydb"
-      }
+      "enabled": true
     }
   }
 }
 ```
 
 ## Tools
+
+### Databases
+- `db_list_databases` - List all configured databases (with enabled status)
+- `db_get_database` - Get details of a specific database
+
+**Important:** All tools now require a `database` parameter to specify which database to operate on. Example: `{ "database": "production", "schema": "public" }`
 
 ### Schemas
 - `db_list_schemas` - List schemas

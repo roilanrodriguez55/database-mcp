@@ -1,11 +1,11 @@
 {
-  "name": "postgresql-mcp",
+  "name": "database-mcp",
   "version": "1.0.0",
   "description": "MCP server for database operations (PostgreSQL and extensible to others)",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && cp databases.json dist/databases.json",
     "start": "tsx src/index.ts",
     "dev": "tsx src/index.ts",
     "setup:skills": "bash scripts/setup-skills.sh"

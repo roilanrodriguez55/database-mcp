@@ -1,42 +1,31 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { IDatabaseDriver } from "../drivers/types.js";
+import type { ConnectionManager } from "../connection-manager.js";
 import { z } from "zod";
-
-function wrapHandler<T>(
-  handler: (params: T) => Promise<{ content: { type: "text"; text: string }[] }>
-) {
-  return async (params: T) => {
-    try {
-      return await handler(params);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      return {
-        content: [{ type: "text" as const, text: msg }],
-        isError: true,
-      };
-    }
-  };
-}
 
 export function registerTriggerTools(
   server: McpServer,
-  driver: IDatabaseDriver
+  connectionManager: ConnectionManager
 ): void {
   server.registerTool(
     "db_list_triggers",
     {
       description: "List triggers",
       inputSchema: {
+        database: z.string().describe("Database name from databases.json"),
         schema: z.string().optional().describe("Filter by schema"),
         table: z.string().optional().describe("Filter by table"),
       },
     },
-    wrapHandler(async ({ schema, table }) => {
-      const triggers = await driver.listTriggers(schema, table);
-      return {
-        content: [{ type: "text", text: JSON.stringify(triggers, null, 2) }],
-      };
-    })
+    async (params: { database: string; schema?: string; table?: string }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        const triggers = await driver.listTriggers(params.schema, params.table);
+        return { content: [{ type: "text", text: JSON.stringify(triggers, null, 2) }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
+      }
+    }
   );
 
   server.registerTool(
@@ -44,6 +33,7 @@ export function registerTriggerTools(
     {
       description: "Create a trigger",
       inputSchema: {
+        database: z.string().describe("Database name from databases.json"),
         schema: z.string().describe("Schema name"),
         table: z.string().describe("Table name"),
         name: z.string().describe("Trigger name"),
@@ -52,12 +42,16 @@ export function registerTriggerTools(
         function: z.string().describe("Trigger function (schema.name or name)"),
       },
     },
-    wrapHandler(async ({ schema, table, name, timing, event, function: fn }) => {
-      await driver.createTrigger(schema, table, name, { timing, event, function: fn });
-      return {
-        content: [{ type: "text", text: `Trigger "${name}" created on "${schema}"."${table}"` }],
-      };
-    })
+    async (params: { database: string; schema: string; table: string; name: string; timing: "BEFORE" | "AFTER" | "INSTEAD OF"; event: "INSERT" | "UPDATE" | "DELETE"; function: string }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        await driver.createTrigger(params.schema, params.table, params.name, { timing: params.timing, event: params.event, function: params.function });
+        return { content: [{ type: "text", text: `Trigger "${params.name}" created on "${params.schema}"."${params.table}"` }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
+      }
+    }
   );
 
   server.registerTool(
@@ -65,16 +59,21 @@ export function registerTriggerTools(
     {
       description: "Drop a trigger",
       inputSchema: {
+        database: z.string().describe("Database name from databases.json"),
         schema: z.string().describe("Schema name"),
         table: z.string().describe("Table name"),
         name: z.string().describe("Trigger name"),
       },
     },
-    wrapHandler(async ({ schema, table, name }) => {
-      await driver.dropTrigger(schema, table, name);
-      return {
-        content: [{ type: "text", text: `Trigger "${name}" dropped` }],
-      };
-    })
+    async (params: { database: string; schema: string; table: string; name: string }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        await driver.dropTrigger(params.schema, params.table, params.name);
+        return { content: [{ type: "text", text: `Trigger "${params.name}" dropped` }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
+      }
+    }
   );
 }
