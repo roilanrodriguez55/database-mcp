@@ -41,6 +41,7 @@ export function registerViewTools(
     },
     async (params: { database: string; schema: string; name: string; query: string; replace?: boolean }) => {
       try {
+        connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
         await driver.createView(params.schema, params.name, params.query, { replace: params.replace });
         return { content: [{ type: "text", text: `View "${params.schema}"."${params.name}" created` }] };
@@ -87,6 +88,7 @@ export function registerViewTools(
     },
     async (params: { database: string; schema: string; name: string; cascade?: boolean }) => {
       try {
+        connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
         await driver.dropView(params.schema, params.name, params.cascade ?? false);
         return { content: [{ type: "text", text: `View "${params.schema}"."${params.name}" dropped` }] };

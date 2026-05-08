@@ -8,6 +8,7 @@
  * - connectionString: PostgreSQL connection string
  * - dbType: Database type (currently only "postgres" is supported)
  * - enabled: Optional boolean, defaults to true. Set to false to disable
+ * - readonly: Optional boolean, defaults to false. Set to true to block all write operations
  */
 [
   {
@@ -19,9 +20,10 @@
   },
   {
     "name": "production",
-    "description": "Production database (disabled for safety)",
+    "description": "Production database - read-only for safety",
     "connectionString": "postgresql://user:password@prod-host:5432/database_name",
     "dbType": "postgres",
-    "enabled": false
+    "enabled": true,
+    "readonly": true
   }
 ]

@@ -36,6 +36,7 @@ export function registerMigrationTools(
     },
     async (params: { database: string; name: string }) => {
       try {
+        connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
         const result = await applyMigration(driver, migrationsDir, params.name);
         if (result.applied) return { content: [{ type: "text", text: `Migration "${params.name}" applied` }] };
@@ -55,6 +56,7 @@ export function registerMigrationTools(
     },
     async (params: { database: string }) => {
       try {
+        connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
         const result = await applyAllMigrations(driver, migrationsDir);
         const output = { applied: result.applied, failed: result.failed, summary: `${result.applied.length} applied, ${result.failed.length} failed` };

@@ -40,6 +40,7 @@ export function registerAuthTools(
     },
     async (params: { database: string; name: string; login?: boolean; password?: string; superuser?: boolean; createdb?: boolean; createrole?: boolean }) => {
       try {
+        connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
         await driver.createRole(params.name, { login: params.login, password: params.password, superuser: params.superuser, createdb: params.createdb, createrole: params.createrole });
         return { content: [{ type: "text", text: `Role "${params.name}" created` }] };
@@ -64,6 +65,7 @@ export function registerAuthTools(
     },
     async (params: { database: string; name: string; password: string; createdb?: boolean; createrole?: boolean }) => {
       try {
+        connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
         await driver.createRole(params.name, { login: true, password: params.password, createdb: params.createdb, createrole: params.createrole });
         return { content: [{ type: "text", text: `User "${params.name}" created` }] };
@@ -89,6 +91,7 @@ export function registerAuthTools(
     },
     async (params: { database: string; name: string; password?: string; login?: boolean; createdb?: boolean; createrole?: boolean }) => {
       try {
+        connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
         await driver.alterRole(params.name, { password: params.password, login: params.login, createdb: params.createdb, createrole: params.createrole });
         return { content: [{ type: "text", text: `Role "${params.name}" altered` }] };
@@ -107,6 +110,7 @@ export function registerAuthTools(
     },
     async (params: { database: string; name: string }) => {
       try {
+        connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
         await driver.dropRole(params.name);
         return { content: [{ type: "text", text: `Role "${params.name}" dropped` }] };
@@ -129,6 +133,7 @@ export function registerAuthTools(
     },
     async (params: { database: string; roleToGrant: string; granteeRole: string }) => {
       try {
+        connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
         await driver.grantRoleMembership(params.roleToGrant, params.granteeRole);
         return { content: [{ type: "text", text: `Role "${params.roleToGrant}" granted to "${params.granteeRole}"` }] };
@@ -147,6 +152,7 @@ export function registerAuthTools(
     },
     async (params: { database: string; roleToRevoke: string; revokeeRole: string }) => {
       try {
+        connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
         await driver.revokeRoleMembership(params.roleToRevoke, params.revokeeRole);
         return { content: [{ type: "text", text: `Role "${params.roleToRevoke}" revoked from "${params.revokeeRole}"` }] };
@@ -165,6 +171,7 @@ export function registerAuthTools(
     },
     async (params: { database: string; schema: string; role: string; privileges: string[] }) => {
       try {
+        connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
         await driver.grantSchema(params.schema, params.role, params.privileges);
         return { content: [{ type: "text", text: `Schema "${params.schema}" privileges granted to "${params.role}"` }] };
@@ -183,6 +190,7 @@ export function registerAuthTools(
     },
     async (params: { database: string; schema: string; role: string; privileges?: string[] }) => {
       try {
+        connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
         await driver.revokeSchema(params.schema, params.role, params.privileges);
         return { content: [{ type: "text", text: `Schema "${params.schema}" privileges revoked from "${params.role}"` }] };
@@ -201,6 +209,7 @@ export function registerAuthTools(
     },
     async (params: { database: string; schema: string; table: string; role: string; privileges: string[] }) => {
       try {
+        connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
         await driver.grantTable(params.schema, params.table, params.role, params.privileges);
         return { content: [{ type: "text", text: `Table "${params.schema}"."${params.table}" privileges granted to "${params.role}"` }] };
@@ -219,6 +228,7 @@ export function registerAuthTools(
     },
     async (params: { database: string; schema: string; table: string; role: string; privileges?: string[] }) => {
       try {
+        connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
         await driver.revokeTable(params.schema, params.table, params.role, params.privileges);
         return { content: [{ type: "text", text: `Table "${params.schema}"."${params.table}" privileges revoked from "${params.role}"` }] };
@@ -237,6 +247,7 @@ export function registerAuthTools(
     },
     async (params: { database: string; schema: string; role: string; privileges: string[] }) => {
       try {
+        connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
         await driver.grantAllTablesInSchema(params.schema, params.role, params.privileges);
         return { content: [{ type: "text", text: `All tables in schema "${params.schema}" granted to "${params.role}"` }] };
@@ -255,6 +266,7 @@ export function registerAuthTools(
     },
     async (params: { database: string; schema: string; role: string; privileges?: string[] }) => {
       try {
+        connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
         await driver.revokeAllTablesInSchema(params.schema, params.role, params.privileges);
         return { content: [{ type: "text", text: `All tables in schema "${params.schema}" revoked from "${params.role}"` }] };

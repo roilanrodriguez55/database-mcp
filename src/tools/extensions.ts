@@ -38,6 +38,7 @@ export function registerExtensionTools(
     },
     async (params: { database: string; name: string; schema?: string }) => {
       try {
+        connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
         await driver.createExtension(params.name, params.schema);
         return { content: [{ type: "text", text: `Extension "${params.name}" installed` }] };
@@ -59,6 +60,7 @@ export function registerExtensionTools(
     },
     async (params: { database: string; name: string }) => {
       try {
+        connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
         await driver.dropExtension(params.name);
         return { content: [{ type: "text", text: `Extension "${params.name}" removed` }] };

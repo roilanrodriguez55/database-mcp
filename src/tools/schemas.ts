@@ -39,6 +39,7 @@ export function registerSchemaTools(
     },
     async (params: { database: string; name: string; owner?: string }) => {
       try {
+        connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
         await driver.createSchema(params.name, { owner: params.owner });
         return { content: [{ type: "text", text: `Schema "${params.name}" created` }] };
@@ -85,6 +86,7 @@ export function registerSchemaTools(
     },
     async (params: { database: string; name: string; newName: string }) => {
       try {
+        connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
         await driver.alterSchema(params.name, { newName: params.newName });
         return { content: [{ type: "text", text: `Schema "${params.name}" renamed to "${params.newName}"` }] };
@@ -107,6 +109,7 @@ export function registerSchemaTools(
     },
     async (params: { database: string; name: string; cascade?: boolean }) => {
       try {
+        connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
         await driver.dropSchema(params.name, params.cascade ?? false);
         return { content: [{ type: "text", text: `Schema "${params.name}" dropped` }] };

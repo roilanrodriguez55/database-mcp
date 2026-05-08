@@ -44,6 +44,7 @@ export function registerTriggerTools(
     },
     async (params: { database: string; schema: string; table: string; name: string; timing: "BEFORE" | "AFTER" | "INSTEAD OF"; event: "INSERT" | "UPDATE" | "DELETE"; function: string }) => {
       try {
+        connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
         await driver.createTrigger(params.schema, params.table, params.name, { timing: params.timing, event: params.event, function: params.function });
         return { content: [{ type: "text", text: `Trigger "${params.name}" created on "${params.schema}"."${params.table}"` }] };
@@ -67,6 +68,7 @@ export function registerTriggerTools(
     },
     async (params: { database: string; schema: string; table: string; name: string }) => {
       try {
+        connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
         await driver.dropTrigger(params.schema, params.table, params.name);
         return { content: [{ type: "text", text: `Trigger "${params.name}" dropped` }] };
