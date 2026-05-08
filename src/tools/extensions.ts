@@ -1,39 +1,29 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { IDatabaseDriver } from "../drivers/types.js";
+import type { ConnectionManager } from "../connection-manager.js";
 import { z } from "zod";
-
-function wrapHandler<T>(
-  handler: (params: T) => Promise<{ content: { type: "text"; text: string }[] }>
-) {
-  return async (params: T) => {
-    try {
-      return await handler(params);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      return {
-        content: [{ type: "text" as const, text: msg }],
-        isError: true,
-      };
-    }
-  };
-}
 
 export function registerExtensionTools(
   server: McpServer,
-  driver: IDatabaseDriver
+  connectionManager: ConnectionManager
 ): void {
   server.registerTool(
     "db_list_extensions",
     {
       description: "List installed extensions",
-      inputSchema: {},
+      inputSchema: {
+        database: z.string().describe("Database name from databases.json"),
+      },
     },
-    wrapHandler(async () => {
-      const extensions = await driver.listExtensions();
-      return {
-        content: [{ type: "text", text: JSON.stringify(extensions, null, 2) }],
-      };
-    })
+    async (params: { database: string }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        const extensions = await driver.listExtensions();
+        return { content: [{ type: "text", text: JSON.stringify(extensions, null, 2) }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
+      }
+    }
   );
 
   server.registerTool(
@@ -41,16 +31,21 @@ export function registerExtensionTools(
     {
       description: "Install an extension",
       inputSchema: {
+        database: z.string().describe("Database name from databases.json"),
         name: z.string().describe("Extension name"),
         schema: z.string().optional().describe("Schema to install into"),
       },
     },
-    wrapHandler(async ({ name, schema }) => {
-      await driver.createExtension(name, schema);
-      return {
-        content: [{ type: "text", text: `Extension "${name}" installed` }],
-      };
-    })
+    async (params: { database: string; name: string; schema?: string }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        await driver.createExtension(params.name, params.schema);
+        return { content: [{ type: "text", text: `Extension "${params.name}" installed` }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
+      }
+    }
   );
 
   server.registerTool(
@@ -58,14 +53,19 @@ export function registerExtensionTools(
     {
       description: "Remove an extension",
       inputSchema: {
+        database: z.string().describe("Database name from databases.json"),
         name: z.string().describe("Extension name"),
       },
     },
-    wrapHandler(async ({ name }) => {
-      await driver.dropExtension(name);
-      return {
-        content: [{ type: "text", text: `Extension "${name}" removed` }],
-      };
-    })
+    async (params: { database: string; name: string }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        await driver.dropExtension(params.name);
+        return { content: [{ type: "text", text: `Extension "${params.name}" removed` }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
+      }
+    }
   );
 }

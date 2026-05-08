@@ -1,41 +1,30 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { IDatabaseDriver } from "../drivers/types.js";
+import type { ConnectionManager } from "../connection-manager.js";
 import { z } from "zod";
-
-function wrapHandler<T>(
-  handler: (params: T) => Promise<{ content: { type: "text"; text: string }[] }>
-) {
-  return async (params: T) => {
-    try {
-      return await handler(params);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      return {
-        content: [{ type: "text" as const, text: msg }],
-        isError: true,
-      };
-    }
-  };
-}
 
 export function registerViewTools(
   server: McpServer,
-  driver: IDatabaseDriver
+  connectionManager: ConnectionManager
 ): void {
   server.registerTool(
     "db_list_views",
     {
       description: "List views",
       inputSchema: {
+        database: z.string().describe("Database name from databases.json"),
         schema: z.string().optional().describe("Filter by schema"),
       },
     },
-    wrapHandler(async ({ schema }) => {
-      const views = await driver.listViews(schema);
-      return {
-        content: [{ type: "text", text: JSON.stringify(views, null, 2) }],
-      };
-    })
+    async (params: { database: string; schema?: string }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        const views = await driver.listViews(params.schema);
+        return { content: [{ type: "text", text: JSON.stringify(views, null, 2) }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
+      }
+    }
   );
 
   server.registerTool(
@@ -43,18 +32,23 @@ export function registerViewTools(
     {
       description: "Create a view",
       inputSchema: {
+        database: z.string().describe("Database name from databases.json"),
         schema: z.string().describe("Schema name"),
         name: z.string().describe("View name"),
         query: z.string().describe("SELECT query defining the view"),
         replace: z.boolean().optional().describe("Replace if exists"),
       },
     },
-    wrapHandler(async ({ schema, name, query, replace }) => {
-      await driver.createView(schema, name, query, { replace });
-      return {
-        content: [{ type: "text", text: `View "${schema}"."${name}" created` }],
-      };
-    })
+    async (params: { database: string; schema: string; name: string; query: string; replace?: boolean }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        await driver.createView(params.schema, params.name, params.query, { replace: params.replace });
+        return { content: [{ type: "text", text: `View "${params.schema}"."${params.name}" created` }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
+      }
+    }
   );
 
   server.registerTool(
@@ -62,22 +56,22 @@ export function registerViewTools(
     {
       description: "Get view definition",
       inputSchema: {
+        database: z.string().describe("Database name from databases.json"),
         schema: z.string().describe("Schema name"),
         name: z.string().describe("View name"),
       },
     },
-    wrapHandler(async ({ schema, name }) => {
-      const view = await driver.getView(schema, name);
-      if (!view) {
-        return {
-          content: [{ type: "text", text: `View "${schema}"."${name}" not found` }],
-          isError: true,
-        };
+    async (params: { database: string; schema: string; name: string }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        const view = await driver.getView(params.schema, params.name);
+        if (!view) return { content: [{ type: "text", text: `View "${params.schema}"."${params.name}" not found` }], isError: true };
+        return { content: [{ type: "text", text: JSON.stringify(view, null, 2) }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
       }
-      return {
-        content: [{ type: "text", text: JSON.stringify(view, null, 2) }],
-      };
-    })
+    }
   );
 
   server.registerTool(
@@ -85,16 +79,21 @@ export function registerViewTools(
     {
       description: "Drop a view",
       inputSchema: {
+        database: z.string().describe("Database name from databases.json"),
         schema: z.string().describe("Schema name"),
         name: z.string().describe("View name"),
         cascade: z.boolean().optional().describe("Drop dependent objects"),
       },
     },
-    wrapHandler(async ({ schema, name, cascade }) => {
-      await driver.dropView(schema, name, cascade ?? false);
-      return {
-        content: [{ type: "text", text: `View "${schema}"."${name}" dropped` }],
-      };
-    })
+    async (params: { database: string; schema: string; name: string; cascade?: boolean }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        await driver.dropView(params.schema, params.name, params.cascade ?? false);
+        return { content: [{ type: "text", text: `View "${params.schema}"."${params.name}" dropped` }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
+      }
+    }
   );
 }

@@ -1,0 +1,27 @@
+/*
+ * Database Configuration Example
+ * Copy this file to databases.json and configure your connections
+ *
+ * Each database object supports:
+ * - name: Unique identifier for the database
+ * - description: Optional description of the database
+ * - connectionString: PostgreSQL connection string
+ * - dbType: Database type (currently only "postgres" is supported)
+ * - enabled: Optional boolean, defaults to true. Set to false to disable
+ */
+[
+  {
+    "name": "local",
+    "description": "Local development database",
+    "connectionString": "postgresql://user:password@localhost:5432/database_name",
+    "dbType": "postgres",
+    "enabled": true
+  },
+  {
+    "name": "production",
+    "description": "Production database (disabled for safety)",
+    "connectionString": "postgresql://user:password@prod-host:5432/database_name",
+    "dbType": "postgres",
+    "enabled": false
+  }
+]

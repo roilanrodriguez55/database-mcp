@@ -1,5 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { IDatabaseDriver, ColumnDef } from "../drivers/types.js";
+import type { ConnectionManager } from "../connection-manager.js";
+import type { ColumnDef } from "../drivers/types.js";
 import { z } from "zod";
 
 const columnDefSchema = z.object({
@@ -9,41 +10,30 @@ const columnDefSchema = z.object({
   default: z.string().optional(),
 });
 
-function wrapHandler<T>(
-  handler: (params: T) => Promise<{ content: { type: "text"; text: string }[] }>
-) {
-  return async (params: T) => {
-    try {
-      return await handler(params);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      return {
-        content: [{ type: "text" as const, text: msg }],
-        isError: true,
-      };
-    }
-  };
-}
-
 export function registerTableTools(
   server: McpServer,
-  driver: IDatabaseDriver
+  connectionManager: ConnectionManager
 ): void {
   server.registerTool(
     "db_list_tables",
     {
       description: "List tables in a schema",
       inputSchema: {
+        database: z.string().describe("Database name from databases.json"),
         schema: z.string().optional().describe("Schema name (default: public)"),
         verbose: z.boolean().optional().describe("Include columns, PK, FK"),
       },
     },
-    wrapHandler(async ({ schema, verbose }) => {
-      const tables = await driver.listTables(schema ?? "public", verbose ?? false);
-      return {
-        content: [{ type: "text", text: JSON.stringify(tables, null, 2) }],
-      };
-    })
+    async (params: { database: string; schema?: string; verbose?: boolean }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        const tables = await driver.listTables(params.schema ?? "public", params.verbose ?? false);
+        return { content: [{ type: "text", text: JSON.stringify(tables, null, 2) }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
+      }
+    }
   );
 
   server.registerTool(
@@ -51,6 +41,7 @@ export function registerTableTools(
     {
       description: "Create a new table",
       inputSchema: {
+        database: z.string().describe("Database name from databases.json"),
         schema: z.string().describe("Schema name"),
         name: z.string().describe("Table name"),
         columns: z.array(columnDefSchema).describe("Column definitions"),
@@ -58,21 +49,22 @@ export function registerTableTools(
         constraints: z.array(z.string()).optional().describe("Additional constraints"),
       },
     },
-    wrapHandler(async ({ schema, name, columns, primaryKey, constraints }) => {
-      const colDefs: ColumnDef[] = columns.map((c) => ({
-        name: c.name,
-        type: c.type,
-        nullable: c.nullable,
-        default: c.default,
-      }));
-      await driver.createTable(schema, name, colDefs, {
-        primaryKey,
-        constraints,
-      });
-      return {
-        content: [{ type: "text", text: `Table "${schema}"."${name}" created` }],
-      };
-    })
+    async (params: { database: string; schema: string; name: string; columns: { name: string; type: string; nullable?: boolean; default?: string }[]; primaryKey?: string[]; constraints?: string[] }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        const colDefs: ColumnDef[] = params.columns.map((c) => ({
+          name: c.name,
+          type: c.type,
+          nullable: c.nullable,
+          default: c.default,
+        }));
+        await driver.createTable(params.schema, params.name, colDefs, { primaryKey: params.primaryKey, constraints: params.constraints });
+        return { content: [{ type: "text", text: `Table "${params.schema}"."${params.name}" created` }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
+      }
+    }
   );
 
   server.registerTool(
@@ -80,22 +72,22 @@ export function registerTableTools(
     {
       description: "Get table details (columns, PK, FK)",
       inputSchema: {
+        database: z.string().describe("Database name from databases.json"),
         schema: z.string().describe("Schema name"),
         name: z.string().describe("Table name"),
       },
     },
-    wrapHandler(async ({ schema, name }) => {
-      const table = await driver.getTable(schema, name);
-      if (!table) {
-        return {
-          content: [{ type: "text", text: `Table "${schema}"."${name}" not found` }],
-          isError: true,
-        };
+    async (params: { database: string; schema: string; name: string }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        const table = await driver.getTable(params.schema, params.name);
+        if (!table) return { content: [{ type: "text", text: `Table "${params.schema}"."${params.name}" not found` }], isError: true };
+        return { content: [{ type: "text", text: JSON.stringify(table, null, 2) }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
       }
-      return {
-        content: [{ type: "text", text: JSON.stringify(table, null, 2) }],
-      };
-    })
+    }
   );
 
   server.registerTool(
@@ -103,6 +95,7 @@ export function registerTableTools(
     {
       description: "Alter table (add/drop columns, rename)",
       inputSchema: {
+        database: z.string().describe("Database name from databases.json"),
         schema: z.string().describe("Schema name"),
         name: z.string().describe("Table name"),
         addColumns: z.array(columnDefSchema).optional().describe("Columns to add"),
@@ -110,21 +103,20 @@ export function registerTableTools(
         renameTo: z.string().optional().describe("New table name"),
       },
     },
-    wrapHandler(async ({ schema, name, addColumns, dropColumns, renameTo }) => {
-      await driver.alterTable(schema, name, {
-        addColumns: addColumns?.map((c) => ({
-          name: c.name,
-          type: c.type,
-          nullable: c.nullable,
-          default: c.default,
-        })),
-        dropColumns,
-        renameTo,
-      });
-      return {
-        content: [{ type: "text", text: `Table "${schema}"."${name}" altered` }],
-      };
-    })
+    async (params: { database: string; schema: string; name: string; addColumns?: { name: string; type: string; nullable?: boolean; default?: string }[]; dropColumns?: string[]; renameTo?: string }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        await driver.alterTable(params.schema, params.name, {
+          addColumns: params.addColumns?.map((c) => ({ name: c.name, type: c.type, nullable: c.nullable, default: c.default })),
+          dropColumns: params.dropColumns,
+          renameTo: params.renameTo,
+        });
+        return { content: [{ type: "text", text: `Table "${params.schema}"."${params.name}" altered` }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
+      }
+    }
   );
 
   server.registerTool(
@@ -132,16 +124,21 @@ export function registerTableTools(
     {
       description: "Drop a table",
       inputSchema: {
+        database: z.string().describe("Database name from databases.json"),
         schema: z.string().describe("Schema name"),
         name: z.string().describe("Table name"),
         cascade: z.boolean().optional().describe("Drop dependent objects"),
       },
     },
-    wrapHandler(async ({ schema, name, cascade }) => {
-      await driver.dropTable(schema, name, cascade ?? false);
-      return {
-        content: [{ type: "text", text: `Table "${schema}"."${name}" dropped` }],
-      };
-    })
+    async (params: { database: string; schema: string; name: string; cascade?: boolean }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        await driver.dropTable(params.schema, params.name, params.cascade ?? false);
+        return { content: [{ type: "text", text: `Table "${params.schema}"."${params.name}" dropped` }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
+      }
+    }
   );
 }

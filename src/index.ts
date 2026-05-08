@@ -2,29 +2,21 @@ import "dotenv/config";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { loadConfig } from "./config.js";
-import { createDriver } from "./drivers/factory.js";
-import { recordMigration } from "./migrations/recorder.js";
+import { ConnectionManager } from "./connection-manager.js";
 import { registerAllTools } from "./tools/index.js";
 
+let connectionManager: ConnectionManager;
+
 async function main() {
-  const { databaseUrl, dbType, migrationsDir, migrationsEnabled } = loadConfig();
-  const migrationRecorder = migrationsEnabled
-    ? async (sql: string, desc: string) => {
-        try {
-          await recordMigration(migrationsDir, sql, desc);
-        } catch (err) {
-          console.error("[MCP Migrations] Failed to record:", err);
-        }
-      }
-    : undefined;
-  const driver = createDriver(dbType, databaseUrl, { migrationRecorder });
+  const { migrationsDir, migrationsEnabled } = loadConfig();
+  connectionManager = new ConnectionManager(migrationsDir, migrationsEnabled);
 
   const server = new McpServer({
     name: "database-mcp",
     version: "1.0.0",
   });
 
-  registerAllTools(server, driver, migrationsDir);
+  registerAllTools(server, connectionManager, migrationsDir);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
@@ -33,4 +25,11 @@ async function main() {
 main().catch((err) => {
   console.error("MCP server error:", err);
   process.exit(1);
+});
+
+process.on("SIGINT", async () => {
+  if (connectionManager) {
+    await connectionManager.closeAll();
+  }
+  process.exit(0);
 });

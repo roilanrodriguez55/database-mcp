@@ -1,41 +1,30 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { IDatabaseDriver } from "../drivers/types.js";
+import type { ConnectionManager } from "../connection-manager.js";
 import { z } from "zod";
-
-function wrapHandler<T>(
-  handler: (params: T) => Promise<{ content: { type: "text"; text: string }[] }>
-) {
-  return async (params: T) => {
-    try {
-      return await handler(params);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      return {
-        content: [{ type: "text" as const, text: msg }],
-        isError: true,
-      };
-    }
-  };
-}
 
 export function registerFunctionTools(
   server: McpServer,
-  driver: IDatabaseDriver
+  connectionManager: ConnectionManager
 ): void {
   server.registerTool(
     "db_list_functions",
     {
       description: "List functions",
       inputSchema: {
+        database: z.string().describe("Database name from databases.json"),
         schema: z.string().optional().describe("Filter by schema"),
       },
     },
-    wrapHandler(async ({ schema }) => {
-      const functions = await driver.listFunctions(schema);
-      return {
-        content: [{ type: "text", text: JSON.stringify(functions, null, 2) }],
-      };
-    })
+    async (params: { database: string; schema?: string }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        const functions = await driver.listFunctions(params.schema);
+        return { content: [{ type: "text", text: JSON.stringify(functions, null, 2) }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
+      }
+    }
   );
 
   server.registerTool(
@@ -43,6 +32,7 @@ export function registerFunctionTools(
     {
       description: "Create a function",
       inputSchema: {
+        database: z.string().describe("Database name from databases.json"),
         schema: z.string().describe("Schema name"),
         name: z.string().describe("Function name"),
         body: z.string().describe("Function body (PL/pgSQL)"),
@@ -51,16 +41,16 @@ export function registerFunctionTools(
         language: z.string().optional().describe("Language (default: plpgsql)"),
       },
     },
-    wrapHandler(async ({ schema, name, body, args, returns, language }) => {
-      await driver.createFunction(schema, name, body, {
-        args,
-        returns,
-        language,
-      });
-      return {
-        content: [{ type: "text", text: `Function "${schema}"."${name}" created` }],
-      };
-    })
+    async (params: { database: string; schema: string; name: string; body: string; args?: string; returns?: string; language?: string }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        await driver.createFunction(params.schema, params.name, params.body, { args: params.args, returns: params.returns, language: params.language });
+        return { content: [{ type: "text", text: `Function "${params.schema}"."${params.name}" created` }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
+      }
+    }
   );
 
   server.registerTool(
@@ -68,16 +58,21 @@ export function registerFunctionTools(
     {
       description: "Drop a function",
       inputSchema: {
+        database: z.string().describe("Database name from databases.json"),
         schema: z.string().describe("Schema name"),
         name: z.string().describe("Function name"),
         args: z.string().optional().describe("Argument types for overload resolution"),
       },
     },
-    wrapHandler(async ({ schema, name, args }) => {
-      await driver.dropFunction(schema, name, args);
-      return {
-        content: [{ type: "text", text: `Function "${schema}"."${name}" dropped` }],
-      };
-    })
+    async (params: { database: string; schema: string; name: string; args?: string }) => {
+      try {
+        const driver = connectionManager.getDatabase(params.database);
+        await driver.dropFunction(params.schema, params.name, params.args);
+        return { content: [{ type: "text", text: `Function "${params.schema}"."${params.name}" dropped` }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: msg }], isError: true };
+      }
+    }
   );
 }
