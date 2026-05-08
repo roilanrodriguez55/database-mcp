@@ -60,11 +60,14 @@ export function registerDataTools(
         schema: z.string().describe("Schema name"),
         table: z.string().describe("Table name"),
         set: z.record(z.unknown()).describe("Column values to set"),
-        where: z.record(z.unknown()).optional().describe("WHERE conditions"),
+        where: z.record(z.unknown()).describe("WHERE conditions (required, prevents accidental mass updates)"),
       },
     },
-    async (params: { database: string; schema: string; table: string; set: Record<string, unknown>; where?: Record<string, unknown> }) => {
+    async (params: { database: string; schema: string; table: string; set: Record<string, unknown>; where: Record<string, unknown> }) => {
       try {
+        if (Object.keys(params.where).length === 0) {
+          return { content: [{ type: "text", text: "db_update requires at least one WHERE condition to prevent accidental mass updates" }], isError: true };
+        }
         const driver = connectionManager.getDatabase(params.database);
         const { rowCount } = await driver.updateRows(params.schema, params.table, params.set, params.where);
         return { content: [{ type: "text", text: JSON.stringify({ rowCount }) }] };
@@ -83,11 +86,14 @@ export function registerDataTools(
         database: z.string().describe("Database name from databases.json"),
         schema: z.string().describe("Schema name"),
         table: z.string().describe("Table name"),
-        where: z.record(z.unknown()).optional().describe("WHERE conditions"),
+        where: z.record(z.unknown()).describe("WHERE conditions (required, prevents accidental mass deletes)"),
       },
     },
-    async (params: { database: string; schema: string; table: string; where?: Record<string, unknown> }) => {
+    async (params: { database: string; schema: string; table: string; where: Record<string, unknown> }) => {
       try {
+        if (Object.keys(params.where).length === 0) {
+          return { content: [{ type: "text", text: "db_delete requires at least one WHERE condition to prevent accidental mass deletes" }], isError: true };
+        }
         const driver = connectionManager.getDatabase(params.database);
         const { rowCount } = await driver.deleteRows(params.schema, params.table, params.where);
         return { content: [{ type: "text", text: JSON.stringify({ rowCount }) }] };
