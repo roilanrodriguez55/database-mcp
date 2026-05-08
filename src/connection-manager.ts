@@ -11,6 +11,7 @@ export interface DatabaseConfig {
   connectionString: string;
   dbType: SupportedDbType;
   enabled?: boolean;
+  readonly?: boolean;
 }
 
 export interface DatabaseInfo {
@@ -18,6 +19,7 @@ export interface DatabaseInfo {
   description?: string;
   dbType: SupportedDbType;
   enabled: boolean;
+  readonly: boolean;
 }
 
 function getProjectRoot(): string {
@@ -41,10 +43,18 @@ export class ConnectionManager {
   private migrationsDir: string;
   private migrationsEnabled: boolean;
 
-  constructor(migrationsDir: string, migrationsEnabled: boolean = true) {
+  constructor(
+    migrationsDir: string,
+    migrationsEnabled: boolean = true,
+    configs?: DatabaseConfig[]
+  ) {
     this.migrationsDir = migrationsDir;
     this.migrationsEnabled = migrationsEnabled;
-    this.loadDatabases();
+    if (configs) {
+      for (const db of configs) this.configs.set(db.name, db);
+    } else {
+      this.loadDatabases();
+    }
   }
 
   private loadDatabases(): void {
@@ -102,6 +112,12 @@ export class ConnectionManager {
     return driver;
   }
 
+  assertWritable(name: string): void {
+    const config = this.configs.get(name);
+    if (!config) throw new Error(`Database "${name}" not found in databases.json`);
+    if (config.readonly === true) throw new Error(`Database "${name}" is read-only`);
+  }
+
   listDatabases(): DatabaseInfo[] {
     const result: DatabaseInfo[] = [];
     for (const [name, config] of this.configs) {
@@ -110,6 +126,7 @@ export class ConnectionManager {
         description: config.description,
         dbType: config.dbType,
         enabled: config.enabled !== false,
+        readonly: config.readonly === true,
       });
     }
     return result;
@@ -123,6 +140,7 @@ export class ConnectionManager {
       description: config.description,
       dbType: config.dbType,
       enabled: config.enabled !== false,
+      readonly: config.readonly === true,
     };
   }
 
