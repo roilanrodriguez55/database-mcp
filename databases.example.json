@@ -5,10 +5,15 @@
  * Each database object supports:
  * - name: Unique identifier for the database
  * - description: Optional description of the database
- * - connectionString: PostgreSQL connection string
- * - dbType: Database type (currently only "postgres" is supported)
+ * - connectionString: Connection string (see notes per dbType below)
+ * - dbType: Database type — "postgres" | "sqlite"
  * - enabled: Optional boolean, defaults to true. Set to false to disable
  * - readonly: Optional boolean, defaults to false. Set to true to block all write operations
+ *
+ * Connection string formats:
+ *   postgres  → "postgresql://user:password@host:5432/dbname"
+ *   sqlite    → absolute file path, e.g. "/home/user/data/app.db"
+ *               or ":memory:" for an in-memory database
  */
 [
   {
@@ -25,5 +30,12 @@
     "dbType": "postgres",
     "enabled": true,
     "readonly": true
+  },
+  {
+    "name": "local_sqlite",
+    "description": "Local SQLite file",
+    "connectionString": "/absolute/path/to/your/database.db",
+    "dbType": "sqlite",
+    "enabled": false
   }
 ]
