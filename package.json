@@ -8,9 +8,15 @@
     "build": "tsc && cp databases.json dist/databases.json",
     "start": "tsx src/index.ts",
     "dev": "tsx src/index.ts",
-    "setup:skills": "bash scripts/setup-skills.sh"
+    "setup:skills": "bash scripts/setup-skills.sh",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
-  "keywords": ["mcp", "database", "postgresql"],
+  "keywords": [
+    "mcp",
+    "database",
+    "postgresql"
+  ],
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.0",
@@ -22,7 +28,8 @@
     "@types/node": "^22.10.0",
     "@types/pg": "^8.11.10",
     "tsx": "^4.19.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.5"
   },
   "engines": {
     "node": ">=18"

@@ -43,10 +43,18 @@ export class ConnectionManager {
   private migrationsDir: string;
   private migrationsEnabled: boolean;
 
-  constructor(migrationsDir: string, migrationsEnabled: boolean = true) {
+  constructor(
+    migrationsDir: string,
+    migrationsEnabled: boolean = true,
+    configs?: DatabaseConfig[]
+  ) {
     this.migrationsDir = migrationsDir;
     this.migrationsEnabled = migrationsEnabled;
-    this.loadDatabases();
+    if (configs) {
+      for (const db of configs) this.configs.set(db.name, db);
+    } else {
+      this.loadDatabases();
+    }
   }
 
   private loadDatabases(): void {
