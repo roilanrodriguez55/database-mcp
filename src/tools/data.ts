@@ -61,10 +61,10 @@ export function registerDataTools(
         schema: z.string().describe("Schema name"),
         table: z.string().describe("Table name"),
         set: z.record(z.unknown()).describe("Column values to set"),
-        where: z.record(z.unknown()).optional().describe("WHERE conditions"),
+        where: z.record(z.unknown()).describe("WHERE conditions (required, prevents accidental mass updates)"),
       },
     },
-    async (params: { database: string; schema: string; table: string; set: Record<string, unknown>; where?: Record<string, unknown> }) => {
+    async (params: { database: string; schema: string; table: string; set: Record<string, unknown>; where: Record<string, unknown> }) => {
       try {
         connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
@@ -85,10 +85,10 @@ export function registerDataTools(
         database: z.string().describe("Database name from databases.json"),
         schema: z.string().describe("Schema name"),
         table: z.string().describe("Table name"),
-        where: z.record(z.unknown()).optional().describe("WHERE conditions"),
+        where: z.record(z.unknown()).describe("WHERE conditions (required, prevents accidental mass deletes)"),
       },
     },
-    async (params: { database: string; schema: string; table: string; where?: Record<string, unknown> }) => {
+    async (params: { database: string; schema: string; table: string; where: Record<string, unknown> }) => {
       try {
         connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
