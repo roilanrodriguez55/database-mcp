@@ -9,7 +9,7 @@ export type SupportedDbType = "postgres" | "sqlite" | "mysql";
 export function createDriver(
   dbType: string,
   connectionString: string,
-  options?: { migrationRecorder?: MigrationRecorder }
+  options?: { migrationRecorder?: MigrationRecorder; databaseName?: string }
 ): IDatabaseDriver {
   switch (dbType.toLowerCase()) {
     case "postgres":
