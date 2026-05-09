@@ -41,6 +41,7 @@ export function registerSequenceTools(
     },
     async (params: { database: string; schema: string; name: string; start?: number; increment?: number }) => {
       try {
+        connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
         await driver.createSequence(params.schema, params.name, { start: params.start, increment: params.increment });
         return { content: [{ type: "text", text: `Sequence "${params.schema}"."${params.name}" created` }] };
@@ -63,6 +64,7 @@ export function registerSequenceTools(
     },
     async (params: { database: string; schema: string; name: string }) => {
       try {
+        connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
         await driver.dropSequence(params.schema, params.name);
         return { content: [{ type: "text", text: `Sequence "${params.schema}"."${params.name}" dropped` }] };

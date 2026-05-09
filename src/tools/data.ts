@@ -41,6 +41,7 @@ export function registerDataTools(
     },
     async (params: { database: string; schema: string; table: string; rows: Record<string, unknown>[] }) => {
       try {
+        connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
         const { rowCount } = await driver.insertRows(params.schema, params.table, params.rows);
         return { content: [{ type: "text", text: JSON.stringify({ rowCount }) }] };
@@ -65,9 +66,7 @@ export function registerDataTools(
     },
     async (params: { database: string; schema: string; table: string; set: Record<string, unknown>; where: Record<string, unknown> }) => {
       try {
-        if (Object.keys(params.where).length === 0) {
-          return { content: [{ type: "text", text: "db_update requires at least one WHERE condition to prevent accidental mass updates" }], isError: true };
-        }
+        connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
         const { rowCount } = await driver.updateRows(params.schema, params.table, params.set, params.where);
         return { content: [{ type: "text", text: JSON.stringify({ rowCount }) }] };
@@ -91,9 +90,7 @@ export function registerDataTools(
     },
     async (params: { database: string; schema: string; table: string; where: Record<string, unknown> }) => {
       try {
-        if (Object.keys(params.where).length === 0) {
-          return { content: [{ type: "text", text: "db_delete requires at least one WHERE condition to prevent accidental mass deletes" }], isError: true };
-        }
+        connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
         const { rowCount } = await driver.deleteRows(params.schema, params.table, params.where);
         return { content: [{ type: "text", text: JSON.stringify({ rowCount }) }] };
@@ -116,6 +113,7 @@ export function registerDataTools(
     },
     async (params: { database: string; sql: string; params?: unknown[] }) => {
       try {
+        connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
         const result = await driver.execute(params.sql, params.params);
         return { content: [{ type: "text", text: JSON.stringify({ rows: result.rows, rowCount: result.rowCount }, null, 2) }] };

@@ -51,6 +51,7 @@ export function registerTableTools(
     },
     async (params: { database: string; schema: string; name: string; columns: { name: string; type: string; nullable?: boolean; default?: string }[]; primaryKey?: string[]; constraints?: string[] }) => {
       try {
+        connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
         const colDefs: ColumnDef[] = params.columns.map((c) => ({
           name: c.name,
@@ -105,6 +106,7 @@ export function registerTableTools(
     },
     async (params: { database: string; schema: string; name: string; addColumns?: { name: string; type: string; nullable?: boolean; default?: string }[]; dropColumns?: string[]; renameTo?: string }) => {
       try {
+        connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
         await driver.alterTable(params.schema, params.name, {
           addColumns: params.addColumns?.map((c) => ({ name: c.name, type: c.type, nullable: c.nullable, default: c.default })),
@@ -132,6 +134,7 @@ export function registerTableTools(
     },
     async (params: { database: string; schema: string; name: string; cascade?: boolean }) => {
       try {
+        connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
         await driver.dropTable(params.schema, params.name, params.cascade ?? false);
         return { content: [{ type: "text", text: `Table "${params.schema}"."${params.name}" dropped` }] };

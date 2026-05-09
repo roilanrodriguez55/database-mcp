@@ -43,6 +43,7 @@ export function registerFunctionTools(
     },
     async (params: { database: string; schema: string; name: string; body: string; args?: string; returns?: string; language?: string }) => {
       try {
+        connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
         await driver.createFunction(params.schema, params.name, params.body, { args: params.args, returns: params.returns, language: params.language });
         return { content: [{ type: "text", text: `Function "${params.schema}"."${params.name}" created` }] };
@@ -66,6 +67,7 @@ export function registerFunctionTools(
     },
     async (params: { database: string; schema: string; name: string; args?: string }) => {
       try {
+        connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
         await driver.dropFunction(params.schema, params.name, params.args);
         return { content: [{ type: "text", text: `Function "${params.schema}"."${params.name}" dropped` }] };
