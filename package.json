@@ -8,9 +8,9 @@
     "build": "tsc && cp databases.json dist/databases.json",
     "start": "tsx src/index.ts",
     "dev": "tsx src/index.ts",
-    "setup:skills": "bash scripts/setup-skills.sh",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "setup:skills": "bash scripts/setup-skills.sh"
   },
   "keywords": [
     "mcp",
@@ -20,11 +20,13 @@
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.0",
+    "better-sqlite3": "^12.9.0",
     "dotenv": "^16.4.0",
     "pg": "^8.13.0",
     "zod": "^3.25.0"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.10.0",
     "@types/pg": "^8.11.10",
     "tsx": "^4.19.0",
