@@ -43,6 +43,7 @@ export function registerIndexTools(
     },
     async (params: { database: string; schema: string; table: string; columns: string[]; name?: string; unique?: boolean }) => {
       try {
+        connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
         await driver.createIndex(params.schema, params.table, params.columns, { name: params.name, unique: params.unique });
         return { content: [{ type: "text", text: `Index created on "${params.schema}"."${params.table}"` }] };
@@ -65,6 +66,7 @@ export function registerIndexTools(
     },
     async (params: { database: string; schema: string; name: string }) => {
       try {
+        connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
         await driver.dropIndex(params.schema, params.name);
         return { content: [{ type: "text", text: `Index "${params.schema}"."${params.name}" dropped` }] };
