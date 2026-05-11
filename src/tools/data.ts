@@ -14,12 +14,17 @@ export function registerDataTools(
         database: z.string().describe("Database name from databases.json"),
         query: z.string().describe("SQL SELECT query"),
         params: z.array(z.unknown()).optional().describe("Query parameters"),
+        limit: z.number().int().positive().optional().describe("Maximum number of rows to return"),
+        offset: z.number().int().nonnegative().optional().describe("Number of rows to skip"),
       },
     },
-    async (params: { database: string; query: string; params?: unknown[] }) => {
+    async (params: { database: string; query: string; params?: unknown[]; limit?: number; offset?: number }) => {
       try {
         const driver = connectionManager.getDatabase(params.database);
-        const result = await driver.execute(params.query, params.params);
+        let sql = params.query.trimEnd().replace(/;$/, "");
+        if (params.limit !== undefined) sql += ` LIMIT ${params.limit}`;
+        if (params.offset !== undefined) sql += ` OFFSET ${params.offset}`;
+        const result = await driver.execute(sql, params.params);
         return { content: [{ type: "text", text: JSON.stringify({ rows: result.rows, rowCount: result.rowCount }, null, 2) }] };
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -109,13 +114,18 @@ export function registerDataTools(
         database: z.string().describe("Database name from databases.json"),
         sql: z.string().describe("SQL statement(s)"),
         params: z.array(z.unknown()).optional().describe("Query parameters"),
+        limit: z.number().int().positive().optional().describe("Maximum number of rows to return (SELECT only)"),
+        offset: z.number().int().nonnegative().optional().describe("Number of rows to skip (SELECT only)"),
       },
     },
-    async (params: { database: string; sql: string; params?: unknown[] }) => {
+    async (params: { database: string; sql: string; params?: unknown[]; limit?: number; offset?: number }) => {
       try {
         connectionManager.assertWritable(params.database);
         const driver = connectionManager.getDatabase(params.database);
-        const result = await driver.execute(params.sql, params.params);
+        let sql = params.sql.trimEnd().replace(/;$/, "");
+        if (params.limit !== undefined) sql += ` LIMIT ${params.limit}`;
+        if (params.offset !== undefined) sql += ` OFFSET ${params.offset}`;
+        const result = await driver.execute(sql, params.params);
         return { content: [{ type: "text", text: JSON.stringify({ rows: result.rows, rowCount: result.rowCount }, null, 2) }] };
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
