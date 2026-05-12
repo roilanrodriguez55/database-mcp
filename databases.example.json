@@ -15,6 +15,11 @@
  *   mysql     → "mysql://user:password@host:3306/dbname"
  *   sqlite    → absolute file path, e.g. "/home/user/data/app.db"
  *               or ":memory:" for an in-memory database
+ *
+ * Running inside Docker:
+ *   - Replace "localhost" with "host.docker.internal" to reach host machine databases
+ *   - For SQLite, mount your .db file and use its container path as connectionString
+ *     e.g. docker run ... -v /your/app.db:/data/app.db  →  connectionString: "/data/app.db"
  */
 [
   {

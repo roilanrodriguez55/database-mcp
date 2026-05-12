@@ -1,4 +1,4 @@
-.PHONY: install build dev start typecheck clean rebuild setup-skills test test-watch docker-up docker-down help
+.PHONY: install build dev start typecheck clean rebuild setup-skills test test-watch docker-up docker-down docker-build docker-run help
 
 .DEFAULT_GOAL := help
 
@@ -18,6 +18,8 @@ help:
 	@echo "  test-watch     Run tests in watch mode"
 	@echo "  docker-up      Start local PostgreSQL container for testing"
 	@echo "  docker-down    Stop local PostgreSQL container"
+	@echo "  docker-build   Build the database-mcp Docker image"
+	@echo "  docker-run     Run the MCP server from Docker (requires databases.json)"
 	@echo ""
 
 install:
@@ -54,3 +56,9 @@ docker-up:
 
 docker-down:
 	docker compose down
+
+docker-build:
+	docker build -t database-mcp .
+
+docker-run:
+	docker run -i --rm -v ./databases.json:/app/databases.json database-mcp
