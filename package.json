@@ -5,7 +5,7 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc && cp databases.json dist/databases.json",
+    "build": "tsc && (cp databases.json dist/databases.json 2>/dev/null || true)",
     "start": "tsx src/index.ts",
     "dev": "tsx src/index.ts",
     "test": "vitest run",
