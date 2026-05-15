@@ -5,12 +5,14 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc && cp databases.json dist/databases.json",
+    "build": "tsc && (cp databases.json dist/databases.json 2>/dev/null || true)",
     "start": "tsx src/index.ts",
     "dev": "tsx src/index.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "setup:skills": "bash scripts/setup-skills.sh"
+    "setup:skills": "bash scripts/setup-skills.sh",
+    "docker:build": "docker build -t database-mcp .",
+    "docker:run": "docker run -i --rm -v ./databases.json:/app/databases.json database-mcp"
   },
   "keywords": [
     "mcp",
