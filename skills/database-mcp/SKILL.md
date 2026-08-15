@@ -108,18 +108,14 @@ Environment variables (still supported):
 
 ## Docker
 
-See [references/docker.md](references/docker.md) for full setup. Quick reference:
+See [references/docker.md](references/docker.md) for full setup. `databases.json` is baked into the image at build time (rebuild after editing it). Quick reference:
 
 ```json
 {
   "mcpServers": {
     "database": {
       "command": "docker",
-      "args": [
-        "run", "-i", "--rm",
-        "-v", "/absolute/path/to/databases.json:/app/databases.json",
-        "database-mcp"
-      ]
+      "args": ["run", "-i", "--rm", "database-mcp"]
     }
   }
 }

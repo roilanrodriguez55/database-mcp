@@ -2,11 +2,15 @@
 
 ## Build the image
 
+`databases.json` must exist in the project root before building — it's copied into the image, so the build fails without it. Copy `databases.example.json` to `databases.json` and configure your connections first.
+
 ```bash
 npm run docker:build
 # or:
 docker build -t database-mcp .
 ```
+
+> **Rebuild whenever `databases.json` changes** — the config is baked into the image, not read at runtime.
 
 ## Configure your MCP client
 
@@ -17,11 +21,7 @@ docker build -t database-mcp .
   "mcpServers": {
     "database": {
       "command": "docker",
-      "args": [
-        "run", "-i", "--rm",
-        "-v", "/absolute/path/to/databases.json:/app/databases.json",
-        "database-mcp"
-      ]
+      "args": ["run", "-i", "--rm", "database-mcp"]
     }
   }
 }
@@ -34,25 +34,22 @@ docker build -t database-mcp .
   "mcpServers": {
     "database": {
       "command": "docker",
-      "args": [
-        "run", "-i", "--rm",
-        "-v", "/absolute/path/to/databases.json:/app/databases.json",
-        "database-mcp"
-      ]
+      "args": ["run", "-i", "--rm", "database-mcp"]
     }
   }
 }
 ```
 
-> **Always use absolute paths** in `-v` mounts. Relative paths are not supported by most MCP clients.
-
 ## Volume mounts
 
+`databases.json` is baked into the image at build time — no mount needed for it. Only mount these if applicable:
+
 | What | Host path | Container path |
-|------|-----------|----------------|
-| Database config (required) | `/your/path/databases.json` | `/app/databases.json` |
+|------|-----------|-----------------|
 | Migrations (optional, to persist) | `/your/path/migrations/` | `/app/migrations` |
 | SQLite file (if applicable) | `/your/path/app.db` | `/data/app.db` |
+
+> **Always use absolute paths** in `-v` mounts. Relative paths are not supported by most MCP clients.
 
 ## Connection strings inside Docker
 
@@ -89,11 +86,10 @@ docker build -t database-mcp .
 "-v", "/your/path/app.db:/data/app.db"
 ```
 
-## Full example with all mounts
+## Full example with mounts
 
 ```bash
 docker run -i --rm \
-  -v /your/path/databases.json:/app/databases.json \
   -v /your/path/migrations:/app/migrations \
   -v /your/path/app.db:/data/app.db \
   database-mcp
@@ -110,7 +106,6 @@ Pass with `-e` flag if needed:
 
 ```bash
 docker run -i --rm \
-  -v /your/path/databases.json:/app/databases.json \
   -e MIGRATIONS_ENABLED=false \
   database-mcp
 ```

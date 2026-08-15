@@ -3,7 +3,6 @@ dist
 .git
 .gitignore
 .env
-databases.json
 migrations
 tests
 skills

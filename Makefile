@@ -19,7 +19,7 @@ help:
 	@echo "  docker-up      Start local PostgreSQL container for testing"
 	@echo "  docker-down    Stop local PostgreSQL container"
 	@echo "  docker-build   Build the database-mcp Docker image"
-	@echo "  docker-run     Run the MCP server from Docker (requires databases.json)"
+	@echo "  docker-run     Run the MCP server from Docker (databases.json baked into the image)"
 	@echo ""
 
 install:
@@ -61,4 +61,4 @@ docker-build:
 	docker build -t database-mcp .
 
 docker-run:
-	docker run -i --rm -v ./databases.json:/app/databases.json database-mcp
+	docker run -i --rm database-mcp

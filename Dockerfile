@@ -11,7 +11,6 @@ RUN npm ci
 COPY tsconfig.json ./
 COPY src ./src
 
-# Compile TypeScript only — databases.json is mounted at runtime
 RUN npx tsc
 
 # Strip dev dependencies from node_modules
@@ -24,11 +23,9 @@ WORKDIR /app
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY package.json ./
+COPY databases.json ./
 
-# databases.json must be mounted at /app/databases.json:
-#   docker run -i --rm -v /absolute/path/to/databases.json:/app/databases.json database-mcp
-#
-# For SQLite databases, also mount each .db file:
+# For SQLite databases, mount each .db file:
 #   -v /absolute/path/to/app.db:/data/app.db
 #   (update connectionString in databases.json to /data/app.db)
 #
