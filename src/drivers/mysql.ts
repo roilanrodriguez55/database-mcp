@@ -1,4 +1,5 @@
 import mysql from "mysql2/promise";
+import { log } from "../logger.js";
 import type {
   IDatabaseDriver,
   SchemaInfo,
@@ -42,16 +43,19 @@ function tableRef(schema: string, name: string): string {
 export class MySQLDriver implements IDatabaseDriver {
   private pool: mysql.Pool;
   private migrationRecorder?: MigrationRecorder;
+  private databaseName?: string;
 
   constructor(
     connectionString: string,
-    options?: { migrationRecorder?: MigrationRecorder }
+    options?: { migrationRecorder?: MigrationRecorder; databaseName?: string }
   ) {
     this.pool = mysql.createPool(connectionString);
     this.migrationRecorder = options?.migrationRecorder;
+    this.databaseName = options?.databaseName;
   }
 
   private async recordMigrationInternal(sql: string, description: string): Promise<void> {
+    log("info", "ddl.executed", { database: this.databaseName, description, sql: sql.slice(0, 500) });
     if (this.migrationRecorder) await this.migrationRecorder(sql, description);
   }
 
@@ -60,13 +64,22 @@ export class MySQLDriver implements IDatabaseDriver {
   }
 
   async execute(sql: string, params?: unknown[]): Promise<QueryResult> {
-    const [result] = await this.pool.query(sql, params ?? []);
-    if (Array.isArray(result)) {
-      const rows = result as Record<string, unknown>[];
-      return { rows, rowCount: rows.length };
+    try {
+      const [result] = await this.pool.query(sql, params ?? []);
+      if (Array.isArray(result)) {
+        const rows = result as Record<string, unknown>[];
+        return { rows, rowCount: rows.length };
+      }
+      const header = result as mysql.ResultSetHeader;
+      return { rows: [], rowCount: header.affectedRows ?? 0 };
+    } catch (err) {
+      log("error", "query.error", {
+        database: this.databaseName,
+        message: err instanceof Error ? err.message : String(err),
+        sql: sql.slice(0, 500),
+      });
+      throw err;
     }
-    const header = result as mysql.ResultSetHeader;
-    return { rows: [], rowCount: header.affectedRows ?? 0 };
   }
 
   // ── Schemas ──────────────────────────────────────────────────────────────────
@@ -543,7 +556,9 @@ export class MySQLDriver implements IDatabaseDriver {
       `INSERT INTO ${tableRef(schema, table)} (${colList}) VALUES ${placeholders}`,
       params
     );
-    return { rowCount: (result as mysql.ResultSetHeader).affectedRows ?? 0 };
+    const rowCount = (result as mysql.ResultSetHeader).affectedRows ?? 0;
+    log("info", "data.insert", { database: this.databaseName, schema, table, rowCount });
+    return { rowCount };
   }
 
   async updateRows(
@@ -565,7 +580,9 @@ export class MySQLDriver implements IDatabaseDriver {
       sql += ` WHERE ${whereParts.join(" AND ")}`;
     }
     const [result] = await this.pool.query(sql, params);
-    return { rowCount: (result as mysql.ResultSetHeader).affectedRows ?? 0 };
+    const rowCount = (result as mysql.ResultSetHeader).affectedRows ?? 0;
+    log("info", "data.update", { database: this.databaseName, schema, table, rowCount });
+    return { rowCount };
   }
 
   async deleteRows(
@@ -584,7 +601,9 @@ export class MySQLDriver implements IDatabaseDriver {
       sql += ` WHERE ${whereParts.join(" AND ")}`;
     }
     const [result] = await this.pool.query(sql, params);
-    return { rowCount: (result as mysql.ResultSetHeader).affectedRows ?? 0 };
+    const rowCount = (result as mysql.ResultSetHeader).affectedRows ?? 0;
+    log("info", "data.delete", { database: this.databaseName, schema, table, rowCount });
+    return { rowCount };
   }
 
   // ── Roles / Auth (MySQL 8+) ──────────────────────────────────────────────────

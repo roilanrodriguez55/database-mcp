@@ -1,4 +1,5 @@
 import { Pool } from "pg";
+import { log } from "../logger.js";
 import type {
   IDatabaseDriver,
   SchemaInfo,
@@ -30,16 +31,19 @@ export type MigrationRecorder = (sql: string, description: string) => Promise<vo
 export class PostgresDriver implements IDatabaseDriver {
   private pool: Pool;
   private migrationRecorder?: MigrationRecorder;
+  private databaseName?: string;
 
   constructor(
     connectionString: string,
-    options?: { migrationRecorder?: MigrationRecorder }
+    options?: { migrationRecorder?: MigrationRecorder; databaseName?: string }
   ) {
     this.pool = new Pool({ connectionString });
     this.migrationRecorder = options?.migrationRecorder;
+    this.databaseName = options?.databaseName;
   }
 
   private async recordMigrationInternal(sql: string, description: string): Promise<void> {
+    log("info", "ddl.executed", { database: this.databaseName, description, sql: sql.slice(0, 500) });
     if (this.migrationRecorder) await this.migrationRecorder(sql, description);
   }
 
@@ -56,6 +60,13 @@ export class PostgresDriver implements IDatabaseDriver {
         rows: (result.rows as Record<string, unknown>[]) ?? [],
         rowCount: result.rowCount ?? 0,
       };
+    } catch (err) {
+      log("error", "query.error", {
+        database: this.databaseName,
+        message: err instanceof Error ? err.message : String(err),
+        sql: sql.slice(0, 500),
+      });
+      throw err;
     } finally {
       client.release();
     }
@@ -569,6 +580,7 @@ export class PostgresDriver implements IDatabaseDriver {
       `INSERT INTO "${schema}"."${table}" (${colList}) VALUES ${placeholders}`,
       params
     );
+    log("info", "data.insert", { database: this.databaseName, schema, table, rowCount });
     return { rowCount };
   }
 
@@ -593,6 +605,7 @@ export class PostgresDriver implements IDatabaseDriver {
       sql += ` WHERE ${whereParts.join(" AND ")}`;
     }
     const { rowCount } = await this.execute(sql, params);
+    log("info", "data.update", { database: this.databaseName, schema, table, rowCount });
     return { rowCount };
   }
 
@@ -614,6 +627,7 @@ export class PostgresDriver implements IDatabaseDriver {
       sql += ` WHERE ${whereParts.join(" AND ")}`;
     }
     const { rowCount } = await this.execute(sql, params);
+    log("info", "data.delete", { database: this.databaseName, schema, table, rowCount });
     return { rowCount };
   }
 

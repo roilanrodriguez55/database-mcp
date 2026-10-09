@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import type { IDatabaseDriver } from "./drivers/types.js";
 import { createDriver, type SupportedDbType } from "./drivers/factory.js";
 import { recordMigration } from "./migrations/recorder.js";
+import { log } from "./logger.js";
 
 export interface DatabaseConfig {
   name: string;
@@ -105,7 +106,8 @@ export class ConnectionManager {
           }
         : undefined;
 
-      driver = createDriver(config.dbType, config.connectionString, { migrationRecorder });
+      log("info", "connection.open", { database: name, dbType: config.dbType });
+      driver = createDriver(config.dbType, config.connectionString, { migrationRecorder, databaseName: name });
       this.connections.set(name, driver);
     }
 
@@ -145,6 +147,7 @@ export class ConnectionManager {
   }
 
   async closeAll(): Promise<void> {
+    log("info", "connection.close_all", { count: this.connections.size });
     for (const driver of this.connections.values()) {
       await driver.close();
     }

@@ -1,4 +1,5 @@
 import Database from "better-sqlite3";
+import { log } from "../logger.js";
 import type {
   IDatabaseDriver,
   SchemaInfo,
@@ -33,17 +34,20 @@ function notSupported(feature: string): never {
 export class SQLiteDriver implements IDatabaseDriver {
   private db: Database.Database;
   private migrationRecorder?: MigrationRecorder;
+  private databaseName?: string;
 
   constructor(
     connectionString: string,
-    options?: { migrationRecorder?: MigrationRecorder }
+    options?: { migrationRecorder?: MigrationRecorder; databaseName?: string }
   ) {
     this.db = new Database(connectionString);
     this.db.pragma("foreign_keys = ON");
     this.migrationRecorder = options?.migrationRecorder;
+    this.databaseName = options?.databaseName;
   }
 
   private async recordMigrationInternal(sql: string, description: string): Promise<void> {
+    log("info", "ddl.executed", { database: this.databaseName, description, sql: sql.slice(0, 500) });
     if (this.migrationRecorder) await this.migrationRecorder(sql, description);
   }
 
@@ -66,12 +70,21 @@ export class SQLiteDriver implements IDatabaseDriver {
 
   async execute(sql: string, params?: unknown[]): Promise<QueryResult> {
     const p = (params ?? []) as unknown[];
-    if (this.isSelectLike(sql)) {
-      const rows = this.db.prepare(sql).all(...p) as Record<string, unknown>[];
-      return { rows, rowCount: rows.length };
+    try {
+      if (this.isSelectLike(sql)) {
+        const rows = this.db.prepare(sql).all(...p) as Record<string, unknown>[];
+        return { rows, rowCount: rows.length };
+      }
+      const result = this.db.prepare(sql).run(...p);
+      return { rows: [], rowCount: result.changes };
+    } catch (err) {
+      log("error", "query.error", {
+        database: this.databaseName,
+        message: err instanceof Error ? err.message : String(err),
+        sql: sql.slice(0, 500),
+      });
+      throw err;
     }
-    const result = this.db.prepare(sql).run(...p);
-    return { rows: [], rowCount: result.changes };
   }
 
   // ── Schemas ─────────────────────────────────────────────────────────────────
@@ -500,6 +513,7 @@ export class SQLiteDriver implements IDatabaseDriver {
       }
     });
     insertAll();
+    log("info", "data.insert", { database: this.databaseName, schema, table, rowCount: total });
     return { rowCount: total };
   }
 
@@ -523,6 +537,7 @@ export class SQLiteDriver implements IDatabaseDriver {
       sql += ` WHERE ${whereParts.join(" AND ")}`;
     }
     const result = this.db.prepare(sql).run(...params);
+    log("info", "data.update", { database: this.databaseName, schema, table, rowCount: result.changes });
     return { rowCount: result.changes };
   }
 
@@ -543,6 +558,7 @@ export class SQLiteDriver implements IDatabaseDriver {
       sql += ` WHERE ${whereParts.join(" AND ")}`;
     }
     const result = this.db.prepare(sql).run(...params);
+    log("info", "data.delete", { database: this.databaseName, schema, table, rowCount: result.changes });
     return { rowCount: result.changes };
   }
 

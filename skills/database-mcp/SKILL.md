@@ -10,7 +10,7 @@ MCP server for database operations. Supports **PostgreSQL**, **MySQL**, **SQLite
 
 ## Before Using Tools
 
-**Always check the tool schema** in `mcps/<server>/tools/*.json` before calling. Required parameters and types vary per tool.
+**Every tool requires a `database` parameter** — the `name` field from `databases.json`. Always pass it.
 
 The MCP server name may be `user-database`, `database`, or similar depending on configuration. Discover available tools via the MCP tool descriptors.
 
@@ -31,6 +31,13 @@ The MCP server name may be `user-database`, `database`, or similar depending on 
 | **Migrations** | db_list_migrations, db_apply_migration, db_apply_all_migrations | Schema versioning |
 
 ## Workflows
+
+### Discover configured databases
+
+Always start by checking what databases are available:
+```
+db_list_databases → pick a name → pass it as `database` in every subsequent call
+```
 
 ### Create table with full CRUD support
 

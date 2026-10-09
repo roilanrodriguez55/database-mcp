@@ -2,7 +2,9 @@
 
 Read tool schemas in `mcps/<server>/tools/*.json` for exact parameters.
 
-## Common Parameters
+## Universal Parameter
+
+**`database`** (required on every tool) — the `name` field from `databases.json`.
 
 | Tool | Key params |
 |------|-----------|

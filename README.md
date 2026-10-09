@@ -1,11 +1,11 @@
-# PostgreSQL MCP Server
+# Database MCP Server
 
-MCP server for database operations. Supports PostgreSQL with an extensible architecture for other engines (MySQL, SQLite, etc.).
+MCP server for database operations. Supports PostgreSQL, MySQL, and SQLite with a unified interface and multi-database architecture.
 
 ## Requirements
 
 - Node.js >= 18
-- PostgreSQL (or compatible database)
+- At least one of: PostgreSQL, MySQL, or SQLite
 
 ## Installation
 
@@ -30,9 +30,10 @@ cp databases.example.json databases.json
 |-------|-------------|
 | `name` | Unique identifier for the database |
 | `description` | Optional description |
-| `connectionString` | PostgreSQL connection string |
-| `dbType` | Database type (currently only `postgres`) |
+| `connectionString` | Connection string (format depends on `dbType`) |
+| `dbType` | Database type: `postgres`, `mysql`, or `sqlite` |
 | `enabled` | Optional boolean, defaults to `true`. Set `false` to disable |
+| `readonly` | Optional boolean, defaults to `false`. Block all write operations |
 
 **Example:**
 
@@ -46,11 +47,18 @@ cp databases.example.json databases.json
     "enabled": true
   },
   {
-    "name": "staging",
-    "description": "Staging environment",
-    "connectionString": "postgresql://user:pass@staging-host:5432/staging_db",
-    "dbType": "postgres",
-    "enabled": true
+    "name": "mysql_prod",
+    "description": "MySQL production database",
+    "connectionString": "mysql://user:pass@mysql-host:3306/prod_db",
+    "dbType": "mysql",
+    "enabled": false
+  },
+  {
+    "name": "local_sqlite",
+    "description": "Local SQLite file",
+    "connectionString": "/home/user/data/app.db",
+    "dbType": "sqlite",
+    "enabled": false
   }
 ]
 ```
